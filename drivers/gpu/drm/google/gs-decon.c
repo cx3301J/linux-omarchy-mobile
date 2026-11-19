@@ -1635,12 +1635,19 @@ static int gs_decon_probe(struct platform_device *pdev)
 		dev_warn(dev, "TE trigger is off (TRIG_CON 0x%08x): no frames will be sent\n",
 			 val);
 
-	dc->mif = devm_clk_get_optional(dev, "mif");
-	if (IS_ERR(dc->mif))
-		return dev_err_probe(dev, PTR_ERR(dc->mif), "mif clock\n");
-	dc->disp = devm_clk_get_optional(dev, "disp");
-	if (IS_ERR(dc->disp))
-		return dev_err_probe(dev, PTR_ERR(dc->disp), "disp clock\n");
+	/*
+	 * The 7a's panel tops out below 120 Hz and its ACPM firmware exposes
+	 * no DVFS clocks, so asking for them would defer probe forever. The
+	 * floors are only needed for the 120 Hz modes.
+	 */
+	if (!dc->soc->panel_modes) {
+		dc->mif = devm_clk_get_optional(dev, "mif");
+		if (IS_ERR(dc->mif))
+			return dev_err_probe(dev, PTR_ERR(dc->mif), "mif clock\n");
+		dc->disp = devm_clk_get_optional(dev, "disp");
+		if (IS_ERR(dc->disp))
+			return dev_err_probe(dev, PTR_ERR(dc->disp), "disp clock\n");
+	}
 	if (dc->mif) {
 		dc->mif_rest = clk_get_rate(dc->mif);
 		dev_info(dev, "MIF at %lu Hz\n", dc->mif_rest);
